@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>UVC-STERIL</title>
+<style>
+  :root{ --bg:#e8f0fb; --card:#fff; --text:#12233b; --dim:#5a6c84; --cyan:#1d6fd8; --bad:#dc2626; --line:#d5e2f2; }
+  *{box-sizing:border-box}
+  body{margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+       background:var(--bg); color:var(--text); padding:16px;
+       font-family:system-ui,-apple-system,"Segoe UI",Tahoma,Arial,sans-serif;}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:18px; padding:28px 22px;
+        max-width:420px; width:100%; text-align:center; box-shadow:0 2px 10px rgba(27,39,51,.06);}
+  h1{font-size:1.15rem; margin:14px 0 4px;}
+  p{color:var(--dim); font-size:.9rem; margin:6px 0; line-height:1.6;}
+  .logo{width:84px; height:84px; margin:0 auto; position:relative; border-radius:50%;
+        box-shadow:0 6px 18px rgba(29,111,216,.35);}
+  .logo svg{width:100%; height:100%; display:block;}
+  .logo.spinning::after{content:""; position:absolute; inset:-8px; border-radius:50%;
+        border:4px solid transparent; border-top-color:var(--cyan); animation:r 1s linear infinite;}
+  @keyframes r{to{transform:rotate(360deg)}}
+  a.btn{display:inline-block; margin-top:14px; background:var(--cyan); color:#fff; text-decoration:none;
+        padding:12px 22px; border-radius:12px; font-weight:700;}
+  .err{color:var(--bad)}
+  small{display:block; margin-top:14px; color:var(--dim); font-size:.72rem; direction:ltr;}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo spinning" id="spin"><svg viewBox="0 0 100 100" aria-label="Noor Al-Ain">
+          <defs>
+            <linearGradient id="lgBg" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#6cb8ff"/><stop offset=".55" stop-color="#1d6fd8"/><stop offset="1" stop-color="#0d2a52"/>
+            </linearGradient>
+            <radialGradient id="lgShine" cx=".32" cy=".22" r=".75">
+              <stop offset="0" stop-color="#ffffff" stop-opacity=".55"/><stop offset=".6" stop-color="#ffffff" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <circle cx="50" cy="50" r="48" fill="url(#lgBg)"/>
+          <circle cx="50" cy="50" r="48" fill="url(#lgShine)"/>
+          <circle cx="50" cy="50" r="46" fill="none" stroke="#ffffff" stroke-opacity=".45" stroke-width="2"/>
+          <circle cx="50" cy="54" r="27" fill="none" stroke="#ffffff" stroke-width="6"
+            stroke-linecap="round" stroke-dasharray="124 46" transform="rotate(-58 50 54)"/>
+          <g stroke="#bfe3ff" stroke-width="4" stroke-linecap="round">
+            <line x1="65" y1="34" x2="48" y2="27.5"/>
+            <line x1="65" y1="34" x2="51.5" y2="21.5"/>
+            <line x1="65" y1="34" x2="57" y2="17.5"/>
+            <line x1="65" y1="34" x2="63.7" y2="15.8"/>
+            <line x1="65" y1="34" x2="70.6" y2="16.6"/>
+          </g>
+          <circle cx="46" cy="57" r="14" fill="#ffffff"/>
+          <circle cx="46" cy="57" r="7.5" fill="#0d2a52"/>
+          <circle cx="42.5" cy="53.5" r="2.8" fill="#ffffff"/>
+        </svg></div>
+  <h1 id="title">جارِ فتح لوحة التحكم…</h1>
+  <p id="msg" dir="auto">UVC-STERIL — Opening the control panel…</p>
+  <div id="action"></div>
+  <small id="meta"></small>
+</div>
+<script>
+(function(){
+  var USER = "Albadree11", REPO = "uvc-link";
+  var api = "https://api.github.com/repos/" + USER + "/" + REPO + "/contents/current.json";
+
+  function show(title, msg, url, isErr){
+    document.getElementById('spin').classList.remove('spinning');
+    var t = document.getElementById('title');
+    t.textContent = title; t.className = isErr ? 'err' : '';
+    document.getElementById('msg').textContent = msg;
+    if(url){
+      document.getElementById('action').innerHTML =
+        '<a class="btn" href="' + url + '">فتح لوحة التحكم — Open</a>';
+    }
+  }
+
+  function go(data){
+    var url = data && data.url;
+    if(data && data.updated_at){
+      document.getElementById('meta').textContent =
+        'Link updated: ' + new Date(data.updated_at * 1000).toLocaleString();
+    }
+    if(!url || !/^https:\/\/[a-z0-9-]+\.trycloudflare\.com\/?$/i.test(url)){
+      show('الجهاز غير متصل حالياً', 'The device has not come online yet. Make sure the Raspberry Pi is on and has internet, then refresh this page in a minute.', null, true);
+      return;
+    }
+    location.replace(url);
+    // If the browser blocks the automatic jump, leave a button to tap.
+    setTimeout(function(){ show('اضغط للفتح', 'Tap to open the control panel.', url, false); }, 2500);
+  }
+
+  function fromPages(){
+    fetch('current.json?t=' + Date.now(), {cache:'no-store'})
+      .then(function(r){ return r.json(); }).then(go)
+      .catch(function(){ show('تعذّر الوصول', 'Could not read the current address. Check your internet and refresh.', null, true); });
+  }
+
+  fetch(api + '?t=' + Date.now(), {headers:{'Accept':'application/vnd.github.raw+json'}, cache:'no-store'})
+    .then(function(r){ if(!r.ok) throw 0; return r.text(); })
+    .then(function(t){ go(JSON.parse(t)); })
+    .catch(fromPages);
+})();
+</script>
+</body>
+</html>
