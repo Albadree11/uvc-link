@@ -90,16 +90,28 @@
     setTimeout(function(){ show('اضغط للفتح', 'Tap to open the control panel.', url, false); }, 2500);
   }
 
-  function fromPages(){
-    fetch('current.json?t=' + Date.now(), {cache:'no-store'})
-      .then(function(r){ return r.json(); }).then(go)
-      .catch(function(){ show('تعذّر الوصول', 'Could not read the current address. Check your internet and refresh.', null, true); });
+  // Three copies of the address, read together; the NEWEST one wins.
+  //  - the GitHub API: always fresh, but only 60 reads an hour per internet
+  //    address (a whole clinic behind one IP can run out);
+  //  - raw.githubusercontent.com: no such limit, a few minutes of caching;
+  //  - this site's own current.json: GitHub Pages can lag several minutes
+  //    behind after the device restarts and its address changes.
+  // Reading only one of them is what sent people to a dead old address.
+  function get(u, raw){
+    var o = {cache:'no-store'};
+    if(raw) o.headers = {'Accept':'application/vnd.github.raw+json'};
+    return fetch(u + (u.indexOf('?') < 0 ? '?' : '&') + 't=' + Date.now(), o)
+      .then(function(r){ if(!r.ok) throw 0; return r.text(); })
+      .then(function(t){ var d = JSON.parse(t); if(!d || !d.url) throw 0; return d; })
+      .catch(function(){ return null; });
   }
-
-  fetch(api + '?t=' + Date.now(), {headers:{'Accept':'application/vnd.github.raw+json'}, cache:'no-store'})
-    .then(function(r){ if(!r.ok) throw 0; return r.text(); })
-    .then(function(t){ go(JSON.parse(t)); })
-    .catch(fromPages);
+  var rawUrl = "https://raw.githubusercontent.com/" + USER + "/" + REPO + "/HEAD/current.json";
+  Promise.all([get(api, true), get(rawUrl, false), get('current.json', false)]).then(function(all){
+    var best = null;
+    all.forEach(function(d){ if(d && (!best || (d.updated_at || 0) > (best.updated_at || 0))) best = d; });
+    if(best) return go(best);
+    show('تعذّر الوصول', 'Could not read the current address. Check your internet and refresh.', null, true);
+  });
 })();
 </script>
 </body>
